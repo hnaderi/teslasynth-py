@@ -1,0 +1,57 @@
+name: Upload Python Package
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: ["**"]
+    tags: [v*]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.12"
+          - "3.14"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Sanity check
+        run: uv run teslasynth --help
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    concurrency: release
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install package
+        run: |
+          uv version $(git describe --tags --abbrev=0)
+          uv build
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "dist/*"
