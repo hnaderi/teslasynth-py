@@ -19,7 +19,7 @@ dev = [
 ]
 
 [project.scripts]
-teslasynth = "teslasynth.visualize:main"
+teslasynth = "cli:main"
 
 [build-system]
 requires = ["hatchling"]
