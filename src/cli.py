@@ -5,7 +5,8 @@ import sys
 import traceback
 import argparse
 from teslasynth import visualization
-from teslasynth.core import Voice, Synth, SynthConfig, BasicInstrument
+from teslasynth.core import Voice, Synth, SynthConfig
+from teslasynth.instruments import BasicInstrument
 
 
 parser = argparse.ArgumentParser("MIDI Interrupt visualizer")
