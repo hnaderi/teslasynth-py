@@ -6,7 +6,7 @@ import traceback
 import argparse
 from teslasynth import visualization
 from teslasynth.core import Voice, Synth, SynthConfig
-from teslasynth.instruments import BasicInstrument
+from teslasynth.instruments import Chiptune
 
 
 parser = argparse.ArgumentParser("MIDI Interrupt visualizer")
@@ -28,13 +28,16 @@ def main():
 
         config = SynthConfig(
             sample_rate=args.sample_rate,
+            min_on_time=500,
+            max_on_time=800,
         )
 
         midi_file_path = args.file
         channel = args.channel
         midi_file = mido.MidiFile(midi_file_path)
 
-        instrument = BasicInstrument()
+        # instrument = BasicInstrument()
+        instrument = Chiptune()
         voice = Voice.load_midi(instrument, midi_file, config)
         synth = Synth(config)
         track = synth.play(voice)
