@@ -268,7 +268,7 @@ class Note:
 
 Instruments: list[Instrument] = [
     Instrument(
-        envelope=ADSRConfig.linear(0.01, -0.02, 0.5, -0.05),
+        envelope=ADSRConfig.linear(0.0001, -0.00002, 0.5, -0.001),
         vibato=VibratoConfig(5, 5),
     )
 ]
@@ -391,7 +391,7 @@ class TeslaSynth:
         msgs = []
         now = 0
         for idx, msg in enumerate(midi_file.merged_track):
-            if not hasattr(msg, "channel") or msg.channel is not channel:
+            if hasattr(msg, "channel") and msg.channel is not channel:
                 continue
             now += msg.time
             heapq.heappush(msgs, Event(now, idx, msg))
@@ -416,7 +416,7 @@ class TeslaSynth:
             evt = heapq.heappop(msgs)
             msg = evt.msg
             if msg.time > 0:
-                delta = msg.time * tempo // ticks_per_beat
+                delta = msg.time * (tempo // ticks_per_beat)
                 pulses.extend(ctrl.sample(delta))
                 now += delta
             match msg.type:
