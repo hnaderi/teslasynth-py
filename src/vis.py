@@ -3,8 +3,8 @@
 import sys
 import traceback
 import argparse
-from teslasynth.visualization2 import visualize_components
-from teslasynth.core2 import Instruments
+from teslasynth.visualization import visualize_components
+from teslasynth.core import Instruments
 
 
 parser = argparse.ArgumentParser("Teslasynth instrument visualizer")

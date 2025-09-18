@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
-import mido
 import sys
 import traceback
 import argparse
-from teslasynth import visualization
-from teslasynth.core import Voice, Synth, SynthConfig
-from teslasynth.instruments import Chiptune
+from teslasynth.visualization import visualize
+from teslasynth.core import (
+    TeslaSynth,
+    SynthConfig,
+    SamplingConfig,
+    Limits,
+)
 
 
 parser = argparse.ArgumentParser("MIDI Interrupt visualizer")
@@ -27,33 +30,28 @@ def main():
         args = parser.parse_args()
 
         config = SynthConfig(
-            sample_rate=args.sample_rate,
-            min_on_time=500,
-            max_on_time=800,
+            limits=Limits(
+                max_on_time=400,
+                min_on_time=100,
+                min_deadtime=100,
+                max_duty=5,
+                max_notes=4,
+            )
         )
+        sampling = SamplingConfig(rate=args.sample_rate)
 
         midi_file_path = args.file
         channel = args.channel
-        midi_file = mido.MidiFile(midi_file_path)
 
-        # instrument = BasicInstrument()
-        instrument = Chiptune()
-        voice = Voice.load_midi(instrument, midi_file, config)
-        synth = Synth(config)
-        track = synth.play(voice)
-
-        track.print_statistics()
-
+        synth = TeslaSynth(config, sampling)
+        result = synth.synthesize(midi_file_path, channel)
+        track = result.make_track()
         if args.output:
             track.save_wav_file(args.output)
 
-        if not args.no_visualization:
-            visualization.visualize(
-                voice=voice,
-                track=track,
-                config=config,
-                channel=channel,
-            )
+        track.print_statistics()
+        visualize(result, track, channel, sampling.rate)
+
     except KeyboardInterrupt:
         print("Shutdown requested...exiting")
     except Exception:
