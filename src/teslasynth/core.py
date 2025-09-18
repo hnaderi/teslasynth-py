@@ -439,10 +439,18 @@ class TeslaSynth:
             (int(start // sampling_interval), int(end // sampling_interval))
             for start, end in pulses
         ]
+        sampled_pulses.sort(key=lambda p: p[0])
+        filtered_pulses = []
+        deadtime_ticks = math.ceil(self.config.limits.min_deadtime / sampling_interval)
+        last_start = -deadtime_ticks
+        for start, end in sampled_pulses:
+            if end - start > 0 and start >= last_start + deadtime_ticks:
+                filtered_pulses.append(Pulse(start, end))
+                last_start = start
         return ProcessedTrack(
             messages=process_messages,
             notes=ctrl.notes,
-            pulses=sampled_pulses,
+            pulses=filtered_pulses,
             sample_rate=self.sampling.rate,
         )
 
