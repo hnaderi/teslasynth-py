@@ -43,6 +43,7 @@ class Envelope:
         if not self._is_released and not is_note_on:
             self._is_released = True
             self._current_curve = len(self.curves) - 1
+            self.curves[self._current_curve].adjust_start(self._level)
 
         curve = self.curves[self._current_curve]
         if curve.is_target_reached:
