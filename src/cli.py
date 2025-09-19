@@ -32,8 +32,8 @@ def main():
         config = SynthConfig(
             limits=Limits(
                 max_on_time=400,
-                min_on_time=100,
-                min_deadtime=100,
+                min_on_time=10,
+                min_deadtime=200,
                 max_duty=5,
                 max_notes=4,
             )

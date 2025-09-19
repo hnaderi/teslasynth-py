@@ -6,7 +6,7 @@ from teslasynth.core import (
     ProcessedTrack,
     ADSRConfig,
     VibratoConfig,
-    Envelope,
+    ADSREnvelope,
     LFO,
     Instrument,
 )
@@ -96,7 +96,7 @@ def simulate_adsr(
     note_on_duration: int,
     sample_rate: int,
 ):
-    env = Envelope(config)
+    env = ADSREnvelope(config)
     times = np.arange(0, duration, 1e6 / sample_rate)
     amps = np.zeros_like(times)
 
@@ -124,8 +124,8 @@ def simulate_lfo(
 
 def visualize_components(
     instrument: Instrument,
-    duration=1e6,
-    note_on_duration=2e5,
+    duration=1e4,
+    note_on_duration=2e3,
     sample_rate=1e5,
 ):
     adsr = instrument.envelope
@@ -144,6 +144,31 @@ def visualize_components(
             linestyle="--",
             label="Note Off",
         )
+        phase_times = [
+            0,
+            adsr.attack,
+            adsr.attack + adsr.decay,
+            note_on_duration,
+            duration,
+        ]
+        phase_labels = ["Start", "Attack End", "Decay End", "Note Off", "End"]
+        for t, label in zip(phase_times, phase_labels):
+            if 0 < t < duration:
+                axs[idx].axvline(t, color="gray", linestyle=":", alpha=0.5)
+                axs[idx].text(
+                    t, 1.05, label, rotation=90, ha="right", va="bottom", fontsize=8
+                )
+
+        axs[idx].axhline(0, color="k", alpha=0.3)
+        axs[idx].axhline(1, color="k", alpha=0.3)
+        axs[idx].axhline(
+            adsr.sustain_level,
+            color="g",
+            linestyle=":",
+            alpha=0.7,
+            label="Sustain Level",
+        )
+
         axs[idx].set_title(
             f"Envelope: A={adsr.attack}, D={adsr.decay}, S={adsr.sustain_level}, R={adsr.release}"
         )
