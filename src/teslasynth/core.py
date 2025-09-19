@@ -398,7 +398,7 @@ class SynthChannel:
         note = self.playing.get(number)
         if velocity == 0:
             if note:
-                note.release()
+                note.release(time)
                 self.__note_processed(number, time)
         else:
             self.__note_received(number, velocity, time)
