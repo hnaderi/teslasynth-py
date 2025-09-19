@@ -39,12 +39,13 @@ class LinearCurve(Curve):
     _current: float
 
     def __init__(self, start: float, end: float, total_time: float):
-        self.slope = (end - start) / total_time
+        if total_time <= 0:
+            self._target_reached = True
+        else:
+            self.slope = (end - start) / total_time
         self.target = end
         self._current = start
         self.total_time = total_time
-        if total_time <= 0:
-            self._target_reached = True
 
     def adjust_start(self, value: float):
         if (value > self.target and self.slope < 0) or (
