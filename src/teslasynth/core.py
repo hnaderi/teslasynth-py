@@ -1,16 +1,17 @@
 import mido
 from collections import defaultdict
 import heapq
-from enum import Enum
 import numpy as np
 from scipy.io import wavfile
 from dataclasses import dataclass, field
 from collections import namedtuple
 import math
+from .envelopes import ADSREnvelope
+from .instruments import Instrument, all as Instruments
+from .lfo import LFO
 
 Pulse = namedtuple("Pulse", ["start", "end"])
 NoteData = namedtuple("Note", ["number", "start", "end", "velocity"])
-EPSILON: float = 1e-3
 
 
 @dataclass
@@ -74,208 +75,6 @@ class SynthesizedTrack:
         print(
             f"Min: {min_pulse_length}uS, Max: {max_pulse_length}uS, Avg: {avg_pulse_length:.2f}uS"
         )
-
-
-@dataclass(frozen=True)
-class VibratoConfig:
-    depth: float
-    freq: float
-
-
-class CurveType(Enum):
-    Linear = 0
-    Exponential = 1
-
-
-@dataclass(frozen=True)
-class ADSRConfig:
-    attack: float
-    decay: float
-    sustain_level: float
-    release: float
-    curve: CurveType = CurveType.Exponential
-
-
-@dataclass(frozen=True)
-class Instrument:
-    envelope: ADSRConfig
-    vibato: VibratoConfig | None = None
-
-
-class Curve:
-    def update(self, dt: int) -> float:
-        return 0
-
-    def adjust_start(self, value: float):
-        pass
-
-    @property
-    def is_target_reached(self) -> bool:
-        return True
-
-
-class FlatCurve(Curve):
-    value: float
-
-    def __init__(self, value: float):
-        self.value = value
-
-    def update(self, dt):
-        return self.value
-
-    @property
-    def is_target_reached(self) -> bool:
-        return False
-
-
-class LinearCurve(Curve):
-    slope: float
-    target: float
-    total_time: float
-    _elapsed: int = 0
-    _target_reached: bool = False
-    _current: float
-
-    def __init__(self, start: float, end: float, total_time: float):
-        self.slope = (end - start) / total_time
-        self.target = end
-        self._current = start
-        self.total_time = total_time
-        if total_time <= 0:
-            self._target_reached = True
-
-    def adjust_start(self, value: float):
-        if (value > self.target and self.slope < 0) or (
-            value < self.target and self.slope > 0
-        ):
-            self._current = value
-
-    def update(self, dt: int) -> float:
-        if self.total_time <= 0 or self.is_target_reached:
-            self._target_reached = True
-            return self.target
-        t = min(dt, self.total_time - self._elapsed)
-        self._elapsed += t
-        self._current += self.slope * t
-        self._target_reached = math.fabs(self._current - self.target) < EPSILON
-        return self.target if self.is_target_reached else self._current
-
-    @property
-    def is_target_reached(self) -> bool:
-        return self._target_reached
-
-
-@dataclass
-class ExponentialCurve(Curve):
-    current: float
-    target: float
-    tau: float
-
-    def update(self, dt: int) -> float:
-        """Exponential approach: current += (target - current) * (1 - exp(-dt/tau))"""
-        if self.tau <= 0:
-            return self.target
-        coef = 1 - math.exp(-dt / self.tau)
-        self.current += (self.target - self.current) * coef
-        return self.current
-
-    def adjust_start(self, value: float):
-        if (value > self.target and self.current > self.target) or (
-            value < self.target and self.current < self.target
-        ):
-            self.current = value
-
-    @property
-    def is_target_reached(self) -> bool:
-        return math.fabs(self.current - self.target) <= EPSILON
-
-
-class Envelope:
-    curves: list[Curve] = []
-    _current_curve: int | None = None
-    _is_off: bool = True
-    _is_released: bool = False
-    _time: int = 0
-    _level: float = 0
-
-    def __init__(self, curves: list[Curve]):
-        self.curves = curves
-        self._current_curve = 0
-        self._is_off = False
-
-    def update(self, time: int, is_note_on: bool) -> float:
-        dt = time - self._time
-        if dt <= 0:
-            return self._level
-        self._time = time
-
-        if self._current_curve is None or len(self.curves) < 1:
-            return self._level
-
-        if not self._is_released and not is_note_on:
-            self._is_released = True
-            self._current_curve = len(self.curves) - 1
-
-        curve = self.curves[self._current_curve]
-        if curve.is_target_reached:
-            if self._current_curve < len(self.curves) - 1:
-                self._current_curve += 1
-            else:
-                self._current_curve = None
-                self._is_off = True
-        self._level = curve.update(dt)
-
-        return self._level
-
-    @property
-    def is_on(self):
-        return not self.is_off
-
-    @property
-    def is_off(self):
-        return self._is_off
-
-
-class ADSREnvelope(Envelope):
-    def __init__(self, config: ADSRConfig):
-        sustain = FlatCurve(config.sustain_level)
-        if config.curve == CurveType.Exponential:
-            log_factor = -math.log(EPSILON)  # ~6.907 for epsilon=0.001
-
-            attack = ExponentialCurve(
-                0, 1, tau=config.attack / log_factor if config.attack > 0 else 0
-            )
-            decay = ExponentialCurve(
-                1,
-                config.sustain_level,
-                tau=config.decay / log_factor if config.decay > 0 else 0,
-            )
-            release = ExponentialCurve(
-                config.sustain_level,
-                0,
-                tau=config.release / log_factor if config.release > 0 else 0,
-            )
-        else:
-            attack = LinearCurve(0, 1, config.attack)
-            decay = LinearCurve(1, config.sustain_level, config.decay)
-            release = LinearCurve(config.sustain_level, 0, config.release)
-
-        super().__init__([attack, decay, sustain, release])
-
-
-class LFO:
-    _phase: float = 0
-    _config: VibratoConfig
-
-    def __init__(self, config: VibratoConfig):
-        self._config = config
-
-    def update(self, dt: int) -> float:
-        config = self._config
-        self._phase += 2 * math.pi * config.freq * (dt / 1e6)
-        if self._phase > 2 * math.pi:
-            self._phase -= 2 * math.pi
-        return config.depth * math.sin(self._phase)
 
 
 class Note:
@@ -351,14 +150,6 @@ class Note:
     @property
     def off_time(self):
         return self._off_time
-
-
-Instruments: list[Instrument] = [
-    Instrument(
-        envelope=ADSRConfig(1000, 2000, 0.5, 1500, curve=CurveType.Exponential),
-        vibato=None,
-    )
-]
 
 
 class SynthChannel:

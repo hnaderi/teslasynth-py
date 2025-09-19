@@ -4,12 +4,10 @@ import numpy as np
 from teslasynth.core import (
     SynthesizedTrack,
     ProcessedTrack,
-    ADSRConfig,
-    VibratoConfig,
-    ADSREnvelope,
-    LFO,
-    Instrument,
 )
+from .envelopes import ADSREnvelope, ADSRConfig
+from .instruments import Instrument
+from .lfo import LFO, VibratoConfig
 
 from collections import namedtuple
 
