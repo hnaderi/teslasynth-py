@@ -10,12 +10,14 @@ from teslasynth.core import (
     SamplingConfig,
     Limits,
 )
+from teslasynth.instruments import all as Instruments
 
 
 parser = argparse.ArgumentParser("MIDI Interrupt visualizer")
 parser.add_argument("file", help="MIDI file")
 parser.add_argument("--sample-rate", "-S", type=int, default=100000)
 parser.add_argument("--channel", "-c", type=int, default=0)
+parser.add_argument("--instrument", "-n", type=int, required=False)
 parser.add_argument("-o", "--output", help="write .wav output file", required=False)
 parser.add_argument(
     "-q",
@@ -33,7 +35,7 @@ def main():
             limits=Limits(
                 max_on_time=400,
                 min_on_time=10,
-                min_deadtime=200,
+                min_deadtime=100,
                 max_duty=5,
                 max_notes=4,
             )
@@ -42,15 +44,23 @@ def main():
 
         midi_file_path = args.file
         channel = args.channel
+        instrument = (
+            Instruments[args.instrument] if args.instrument is not None else None
+        )
 
         synth = TeslaSynth(config, sampling)
-        result = synth.synthesize(midi_file_path, channel)
+        result = synth.synthesize(
+            midi_file_path,
+            channel=channel,
+            instrument=instrument,
+        )
         track = result.make_track()
         if args.output:
             track.save_wav_file(args.output)
 
         track.print_statistics()
-        visualize(result, track, channel, sampling.rate)
+        if not args.no_visualization:
+            visualize(result, track, channel, sampling.rate)
 
     except KeyboardInterrupt:
         print("Shutdown requested...exiting")

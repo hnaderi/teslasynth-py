@@ -280,10 +280,11 @@ class TeslaSynth:
         self,
         path: str,
         channel: int = 0,
+        instrument: Instrument | None = None,
     ) -> ProcessedTrack:
         midi = mido.MidiFile(path)
         msgs = self._msg_heap(midi, channel)
-        ctrl = SynthChannel(self.config)
+        ctrl = SynthChannel(self.config, instrument=instrument)
         tempo = 500000  # half a second for 120bpm
         ticks_per_beat = midi.ticks_per_beat
         now = 0
@@ -309,7 +310,8 @@ class TeslaSynth:
                 case "control_change":
                     ctrl.on_control_change(msg.control, msg.value)
                 case "program_change":
-                    ctrl.on_program_change(msg.program)
+                    if not instrument:
+                        ctrl.on_program_change(msg.program)
             process_messages.append(msg)
 
         sampling_interval = self.sampling.interval
